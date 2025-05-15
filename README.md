@@ -72,7 +72,3 @@ bun dev
 - "Do I have any conflicts this week?"
 - "sendblue" (find meetings with just a company name)
 - "acme" (works with just a keyword)
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
