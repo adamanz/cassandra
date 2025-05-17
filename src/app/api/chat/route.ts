@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { type Message, LangChainAdapter } from 'ai';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ChatAnthropic } from '@langchain/anthropic';
 import { SystemMessage } from '@langchain/core/messages';
 import { Calculator } from '@langchain/community/tools/calculator';
 import { SerpAPI } from '@langchain/community/tools/serpapi';
-import { GoogleCalendarCreateTool } from '@langchain/community/tools/google_calendar';
 
 import { getGoogleAccessToken } from '@/lib/auth0';
 import { convertVercelMessageToLangChainMessage } from '@/utils/message-converters';
 import { logToolCallsInDevelopment } from '@/utils/stream-logging';
 import { EnhancedGoogleCalendarViewTool } from '@/lib/enhanced-calendar-tools';
+import { EnhancedGoogleCalendarCreateTool } from '@/lib/enhanced-calendar-create-tool';
 
 const AGENT_SYSTEM_TEMPLATE = `You are Cassandra, an ultra-smart calendar assistant specialized in finding and managing events.
 
@@ -41,7 +42,8 @@ RESPONSE FORMAT:
 - For no results, I suggest checking spelling variations or using alternative search terms
 - I always respond in a concise, easy-to-read format with dates and times clearly indicated
 
-When creating events, I need: date, time, title and optional location.
+When creating events, I need: date, time, title and optional location and attendees.
+To add attendees, include a line starting with "Attendees:" or "Invite:" followed by comma-separated email addresses.
 
 I always prioritize finding events over creating new ones when the query is ambiguous.`;
 
@@ -61,23 +63,25 @@ export async function POST(req: NextRequest) {
     const messages = (body.messages ?? [])
       .filter((message: Message) => message.role === 'user' || message.role === 'assistant')
       .map(convertVercelMessageToLangChainMessage);
+    
+    console.log(`Processing ${messages.length} messages`);
 
     // Check for required API keys
-    if (!process.env.GOOGLE_API_KEY) {
-      console.error('Missing GOOGLE_API_KEY environment variable');
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error('Missing ANTHROPIC_API_KEY environment variable');
       return NextResponse.json(
-        { error: 'Server configuration error: Missing Gemini API key' },
+        { error: 'Server configuration error: Missing Anthropic API key' },
         { status: 500 }
       );
     }
 
-    const llm = new ChatGoogleGenerativeAI({
-      model: 'gemini-2.5-flash-preview-04-17',
-      apiKey: process.env.GOOGLE_API_KEY,
-      temperature: 0.1, // Lower temperature for more precise responses with calendar data
-      topP: 0.97, // Higher value helps with keyword matching
-      topK: 40,   // Increase diversity for creative search approaches
-      maxOutputTokens: 1024, // Allow longer responses for detailed calendar info
+    const llm = new ChatAnthropic({
+      model: 'claude-3-7-sonnet-20250219',
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      temperature: 0.3,
+      topP: 0.95,
+      maxTokens: 4096,
+      streaming: true,
     });
 
     // Create basic tools that don't require Google integration
@@ -126,7 +130,7 @@ export async function POST(req: NextRequest) {
       // Enhanced calendar tools with specialized parameters for better search
       const tools = [
         ...basicTools,
-        new GoogleCalendarCreateTool(googleCalendarCreateParams),
+        new EnhancedGoogleCalendarCreateTool(googleCalendarCreateParams),
         new EnhancedGoogleCalendarViewTool(googleCalendarViewParams),
       ];
       
@@ -152,7 +156,14 @@ export async function POST(req: NextRequest) {
        *
        * See: https://langchain-ai.github.io/langgraphjs/how-tos/stream-tokens/
        */
-      const eventStream = agent.streamEvents({ messages }, { version: 'v2' });
+      const eventStream = agent.streamEvents(
+        { messages }, 
+        { 
+          version: 'v2',
+          streamMode: 'values',
+          recursionLimit: 50,
+        }
+      );
 
       // Log tool calling data. Only in development mode
       const transformedStream = logToolCallsInDevelopment(eventStream);

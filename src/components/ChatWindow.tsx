@@ -7,7 +7,7 @@ import type { FormEvent, ReactNode } from 'react';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import { ArrowDown, ArrowUpIcon, LoaderCircle, AlertCircleIcon, RefreshCcw } from 'lucide-react';
 
-import { ChatMessageBubble } from '@/components/ChatMessageBubble';
+import { MessageItem } from '@/components/MessageItem';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/utils/cn';
 
@@ -16,11 +16,17 @@ const ChatMessages = memo(function ChatMessages(props: {
   emptyStateComponent: ReactNode;
   aiEmoji?: string;
   className?: string;
+  isStreaming?: boolean;
 }) {
   return (
     <div className="flex flex-col max-w-[768px] mx-auto pb-12 w-full">
-      {props.messages.map((m) => (
-        <ChatMessageBubble key={m.id} message={m} aiEmoji={props.aiEmoji} />
+      {props.messages.map((m, index) => (
+        <MessageItem 
+          key={m.id} 
+          message={m} 
+          aiEmoji={props.aiEmoji}
+          isLoading={index === props.messages.length - 1 && props.isStreaming && m.role === 'assistant' && !m.content}
+        />
       ))}
     </div>
   );
@@ -31,7 +37,7 @@ const ScrollToBottom = memo(function ScrollToBottom(props: { className?: string 
 
   if (isAtBottom) return null;
   return (
-    <Button variant="outline" className={props.className} onClick={scrollToBottom}>
+    <Button variant="outline" className={props.className} onClick={() => scrollToBottom()}>
       <ArrowDown className="w-4 h-4" />
     </Button>
   );
@@ -58,22 +64,24 @@ const ChatInput = memo(function ChatInput(props: {
       onSubmit={handleSubmit}
       className={cn('flex w-full flex-col', props.className)}
     >
-      <div className="border border-input bg-background rounded-lg flex flex-col gap-2 max-w-[768px] w-full mx-auto">
+      <div className="border border-input/20 bg-background/50 backdrop-blur-sm rounded-2xl shadow-lg flex flex-col gap-2 max-w-[768px] w-full mx-auto transition-all duration-200 hover:border-primary/30 focus-within:border-primary/50">
         <input
           value={props.value}
           placeholder={props.placeholder}
           onChange={props.onChange}
           disabled={props.disabled}
-          className="border-none outline-none bg-transparent p-4"
+          className="border-none outline-none bg-transparent p-4 text-foreground placeholder:text-muted-foreground"
         />
 
         <div className="flex justify-end mr-2 mb-2">
           <Button
-            className="rounded-full p-1.5 h-fit border dark:border-zinc-600"
+            className="rounded-full p-2 h-10 w-10 hover:scale-105"
+            variant="default"
             type="submit"
+            size="icon"
             disabled={props.loading || props.disabled}
           >
-            {props.loading ? <LoaderCircle className="animate-spin" /> : <ArrowUpIcon size={14} />}
+            {props.loading ? <LoaderCircle className="animate-spin" size={20} /> : <ArrowUpIcon size={20} />}
           </Button>
         </div>
       </div>
@@ -186,10 +194,11 @@ export const ChatWindow = memo(function ChatWindow(props: {
           aiEmoji={props.emoji}
           messages={chat.messages}
           emptyStateComponent={props.emptyStateComponent}
+          isStreaming={isLoading}
         />
       </>
     );
-  }, [chat.messages, hasError, props.emoji, props.emptyStateComponent, retryConnection]);
+  }, [chat.messages, hasError, props.emoji, props.emptyStateComponent, retryConnection, isLoading]);
 
   const footer = useMemo(() => (
     <div className="sticky bottom-8 px-2">

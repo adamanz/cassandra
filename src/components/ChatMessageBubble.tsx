@@ -1,5 +1,5 @@
 import type { Message } from 'ai/react';
-import { MemoizedMarkdown } from './MemoizedMarkdown';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import { cn } from '@/utils/cn';
 
 export function ChatMessageBubble(props: { message: Message; aiEmoji?: string }) {
@@ -17,8 +17,8 @@ export function ChatMessageBubble(props: { message: Message; aiEmoji?: string })
         </div>
       )}
 
-      <div className="chat-message-bubble whitespace-pre-wrap flex flex-col prose max-w-none">
-        <MemoizedMarkdown content={props.message.content} id={props.message.id} />
+      <div className="chat-message-bubble whitespace-pre-wrap flex flex-col">
+        <MarkdownRenderer content={props.message.content} />
       </div>
     </div>
   );

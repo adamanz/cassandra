@@ -1,0 +1,44 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`MemoizedMarkdown Snapshots should render complex markdown with headers and lists 1`] = `
+<div>
+  <h1>
+    Header
+  </h1>
+  <p>
+    This is a paragraph.
+  </p>
+  <li>
+    Item 1
+  </li>
+  <li>
+    Item 2
+  </li>
+</div>
+`;
+
+exports[`MemoizedMarkdown Snapshots should render empty content 1`] = `<div />`;
+
+exports[`MemoizedMarkdown Snapshots should render simple markdown correctly 1`] = `
+<div>
+  <p>
+    Hello world\\nThis is a test
+  </p>
+</div>
+`;
+
+exports[`MemoizedMarkdown Snapshots should render with different IDs: with-id-1 1`] = `
+<div>
+  <p>
+    Test content
+  </p>
+</div>
+`;
+
+exports[`MemoizedMarkdown Snapshots should render with different IDs: with-id-2 1`] = `
+<div>
+  <p>
+    Test content
+  </p>
+</div>
+`;

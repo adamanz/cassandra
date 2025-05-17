@@ -1,50 +1,37 @@
 import { GoogleCalendarViewTool } from '@langchain/community/tools/google_calendar';
-import { z } from 'zod';
+import { CallbackManagerForToolRun } from "@langchain/core/callbacks/manager";
 
 /**
- * Enhanced Google Calendar View Tool with improved keyword search capabilities
- * Extends the standard Google Calendar View Tool to handle minimal input searches
+ * Enhanced Google Calendar View Tool with improved keyword search capabilities and time awareness
+ * Extends the standard Google Calendar View Tool to handle minimal input searches and show current time
  */
 export class EnhancedGoogleCalendarViewTool extends GoogleCalendarViewTool {
   name = "enhanced_google_calendar_view";
-  description = "Get events from Google Calendar with advanced search capabilities.";
+  description = "Get events from Google Calendar with advanced search capabilities and current time awareness.";
 
-  // Enhanced schema with better query parameters
-  schema = z.object({
-    query: z
-      .string()
-      .optional()
-      .describe(
-        "Query string for finding events. This is HIGHLY FLEXIBLE and can match partial words in title, description, attendees. Always expand abbreviations and try variations of company names."
-      ),
-    calendarId: z
-      .string()
-      .optional()
-      .default("primary")
-      .describe("The ID of the calendar to query"),
-    timeMin: z
-      .string()
-      .optional()
-      .describe(
-        "The start time of the query range in ISO 8601 format. If empty, defaults to the beginning of the current day."
-      ),
-    timeMax: z
-      .string()
-      .optional()
-      .describe(
-        "The end time of the query range in ISO 8601 format. If empty and timeMin is specified, defaults to timeMin + 7 days. If timeMin is also empty, defaults to the end of the current day."
-      ),
-    maxResults: z
-      .number()
-      .optional()
-      .default(20)
-      .describe("The maximum number of events to return."),
-    singleEvents: z
-      .boolean()
-      .optional()
-      .default(true)
-      .describe("Whether to expand recurring events into single events."),
-  });
+  // Helper method to get current time with timezone information
+  private getCurrentTimeInfo(): string {
+    const now = new Date();
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    // Format the current time in various helpful ways
+    const formattedTime = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    }).format(now);
+    
+    // Also include ISO format for precision
+    const isoTime = now.toISOString();
+    
+    return `Current time: ${formattedTime}\nISO format: ${isoTime}\nTimezone: ${timezone}`;
+  }
 
   // Helper method to generate common variations of company/person names
   private generateNameVariations(query: string): string[] {
@@ -104,7 +91,7 @@ export class EnhancedGoogleCalendarViewTool extends GoogleCalendarViewTool {
   }
 
   // Helper method to expand search time windows based on query context
-  private expandTimeWindow(input: z.infer<typeof this.schema>, query: string): void {
+  private expandTimeWindowForQuery(query: string): { timeMin?: string; timeMax?: string } {
     const timeRangeKeywords = [
       'today', 'tomorrow', 'yesterday', 
       'this week', 'next week', 'last week',
@@ -116,97 +103,119 @@ export class EnhancedGoogleCalendarViewTool extends GoogleCalendarViewTool {
       query.toLowerCase().includes(keyword)
     );
     
+    const result: { timeMin?: string; timeMax?: string } = {};
+    
     // Simple query (1-2 words) with no explicit time reference
     if (!hasTimeReference && query.trim().split(/\s+/).length <= 2) {
-      // Default to start of yesterday if not specified 
-      if (!input.timeMin) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        yesterday.setHours(0, 0, 0, 0);
-        input.timeMin = yesterday.toISOString();
-      }
+      // Default to start of yesterday
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      result.timeMin = yesterday.toISOString();
       
-      // Default to 30 days from timeMin if not specified
-      if (!input.timeMax) {
-        const timeMin = new Date(input.timeMin);
-        const timeMax = new Date(timeMin);
-        timeMax.setDate(timeMax.getDate() + 30); // Look ahead 30 days
-        input.timeMax = timeMax.toISOString();
-      }
+      // Default to 30 days from timeMin
+      const timeMax = new Date(yesterday);
+      timeMax.setDate(timeMax.getDate() + 31); // 30 days forward
+      result.timeMax = timeMax.toISOString();
     } 
-    // If there's a time reference but no explicit timeMax, provide generous buffer
-    else if (hasTimeReference && input.timeMin && !input.timeMax) {
-      const timeMin = new Date(input.timeMin);
-      const timeMax = new Date(timeMin);
+    // If there's a time reference, provide generous buffer
+    else if (hasTimeReference) {
+      const now = new Date();
       
-      // Add buffer days based on the time reference
       if (query.toLowerCase().includes('tomorrow')) {
-        timeMax.setDate(timeMax.getDate() + 3); // tomorrow + 2 days buffer
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+        result.timeMin = tomorrow.toISOString();
+        
+        const endTime = new Date(tomorrow);
+        endTime.setDate(endTime.getDate() + 3); // tomorrow + 2 days buffer
+        result.timeMax = endTime.toISOString();
       } else if (query.toLowerCase().includes('this week')) {
-        timeMax.setDate(timeMax.getDate() + 10); // current week + buffer
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        result.timeMin = startOfWeek.toISOString();
+        
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(endOfWeek.getDate() + 10); // current week + buffer
+        result.timeMax = endOfWeek.toISOString();
       } else if (query.toLowerCase().includes('next week')) {
-        timeMax.setDate(timeMax.getDate() + 14); // next week + buffer
-      } else if (query.toLowerCase().includes('this month') || query.toLowerCase().includes('next month')) {
-        timeMax.setDate(timeMax.getDate() + 45); // month + buffer
-      } else {
-        timeMax.setDate(timeMax.getDate() + 7); // default buffer
+        const nextWeek = new Date(now);
+        nextWeek.setDate(now.getDate() + (7 - now.getDay()) + 7);
+        nextWeek.setHours(0, 0, 0, 0);
+        result.timeMin = nextWeek.toISOString();
+        
+        const endTime = new Date(nextWeek);
+        endTime.setDate(endTime.getDate() + 14); // next week + buffer
+        result.timeMax = endTime.toISOString();
       }
-      
-      input.timeMax = timeMax.toISOString();
     }
+    
+    return result;
   }
 
-  async _call(input: z.infer<typeof this.schema>) {
+  // Override the _call method to add our enhancements
+  async _call(query: string, runManager?: CallbackManagerForToolRun): Promise<string> {
     try {
-      // Keep original query for search window expansion logic
-      const originalQuery = input.query || '';
+      // Always show current time at the beginning
+      const timePrefix = `${this.getCurrentTimeInfo()}\n\n`;
       
-      // Expand time window based on query context
-      this.expandTimeWindow(input, originalQuery);
-  
-      // Process query with advanced fuzzy search capabilities
-      if (input.query) {
-        // Generate variations of the query
-        const variations = this.generateNameVariations(input.query);
-        
-        // Replace original query with OR-joined variations
-        input.query = variations.join(' OR ');
-        
-        // Debug logging for development 
-        console.log(`Enhanced calendar search: Expanded "${originalQuery}" to search for variations: ${variations.length} alternatives`);
+      // Extract potential time range from query
+      const timeWindow = this.expandTimeWindowForQuery(query);
+      
+      // Generate variations of the query for better matching
+      const variations = this.generateNameVariations(query);
+      const enhancedQuery = variations.join(' OR ');
+      
+      // Build an enhanced query that includes time window if available
+      let finalQuery = enhancedQuery;
+      if (timeWindow.timeMin || timeWindow.timeMax) {
+        // Add time boundaries to the query in a way the parent class can understand
+        if (timeWindow.timeMin) {
+          finalQuery += ` after:${timeWindow.timeMin.split('T')[0]}`;
+        }
+        if (timeWindow.timeMax) {
+          finalQuery += ` before:${timeWindow.timeMax.split('T')[0]}`;
+        }
       }
-  
-      // Call the parent implementation with our enhanced parameters
-      const result = await super._call(input);
+      
+      // Debug logging for development
+      console.log(`Enhanced calendar search: Expanded "${query}" to search for variations: ${variations.length} alternatives`);
+      
+      // Call the parent implementation with our enhanced query
+      const result = await super._call(finalQuery, runManager);
       
       // Add extra context for the agent if this was a single-word search
-      if (originalQuery && originalQuery.trim().split(/\s+/).length === 1) {
+      if (query && query.trim().split(/\s+/).length === 1) {
         // If no events were found with the enhanced search
         if (result.includes("No events found") || result.includes("Could not find any events")) {
-          return `${result}\n\nNote: I searched for "${originalQuery}" using multiple variations (${this.generateNameVariations(originalQuery).join(", ")}), but couldn't find any matching events in your calendar. Try using a different keyword or check if the event exists.`;
+          return `${timePrefix}${result}\n\nNote: I searched for "${query}" using multiple variations (${variations.join(", ")}), but couldn't find any matching events in your calendar. Try using a different keyword or check if the event exists.`;
         }
         
         // If events were found, add context that advanced search was used
-        return `${result}\n\nNote: I found these events by searching for variations of "${originalQuery}" across a wide date range.`;
+        return `${timePrefix}${result}\n\nNote: I found these events by searching for variations of "${query}" across a wide date range.`;
       }
       
-      return result;
+      return `${timePrefix}${result}`;
     } catch (error) {
       console.error("Enhanced calendar search error:", error);
       
       // Provide helpful error message based on the type of error
+      const timeInfo = `${this.getCurrentTimeInfo()}\n\n`;
+      
       if (error instanceof Error) {
         if (error.message.includes("token")) {
-          return "I encountered an authentication issue when searching your calendar. Please try logging out and back in to refresh your access.";
+          return `${timeInfo}I encountered an authentication issue when searching your calendar. Please try logging out and back in to refresh your access.`;
         } else if (error.message.includes("permission") || error.message.includes("scope")) {
-          return "I don't have sufficient permissions to search your calendar. Please check your Google Calendar permissions.";
+          return `${timeInfo}I don't have sufficient permissions to search your calendar. Please check your Google Calendar permissions.`;
         } else if (error.message.includes("rate limit") || error.message.includes("quota")) {
-          return "I've hit a rate limit when searching your calendar. Please try again in a moment.";
+          return `${timeInfo}I've hit a rate limit when searching your calendar. Please try again in a moment.`;
         }
       }
       
       // Generic error message
-      return "I encountered an issue when searching your calendar. Please try again with a more specific query.";
+      return `${timeInfo}I encountered an issue when searching your calendar. Please try again with a more specific query.`;
     }
   }
 }

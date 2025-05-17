@@ -18,7 +18,7 @@ Cassandra is a specialized AI calendar assistant designed to help you manage you
 
 - **Integration with Google Calendar:** Securely connects to Google Calendar using Auth0's Token Vault feature.
 
-- **Powered by Gemini AI:** Utilizes Google's Gemini 2.5 Flash Preview model for fast, accurate responses.
+- **Powered by Claude:** Utilizes Anthropic's Claude 3.7 Sonnet model for fast, accurate responses.
 
 - **Built with Modern Stack:** Next.js, LangChain, and LangGraph.js for a responsive, streaming experience.
 
@@ -29,7 +29,7 @@ Cassandra is a specialized AI calendar assistant designed to help you manage you
 - Node.js 18+ or Bun
 - Auth0 account with Token Vault enabled
 - Google API credentials
-- Gemini API key
+- Anthropic API key
 
 ### Setup
 

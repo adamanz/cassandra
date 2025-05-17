@@ -1,28 +1,42 @@
-import { marked } from 'marked';
+import { Marked } from 'marked';
 import { memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 
-function parseMarkdownIntoBlocks(markdown: string): string[] {
-  const tokens = marked.lexer(markdown);
-  return tokens.map((token: any) => token.raw);
+interface MarkdownProps {
+  content: string;
+  id: string;
 }
 
-const MemoizedMarkdownBlock = memo(
-  ({ content }: { content: string }) => {
-    return <ReactMarkdown>{content}</ReactMarkdown>;
-  },
-  (prevProps, nextProps) => {
-    if (prevProps.content !== nextProps.content) return false;
-    return true;
-  },
+// Optimize the block component with a simple memo comparison
+const MemoizedMarkdownBlock = memo<{ content: string }>(
+  ({ content }) => <ReactMarkdown>{content}</ReactMarkdown>
 );
 
 MemoizedMarkdownBlock.displayName = 'MemoizedMarkdownBlock';
 
-export const MemoizedMarkdown = memo(({ content, id }: { content: string; id: string }) => {
-  const blocks = useMemo(() => parseMarkdownIntoBlocks(content), [content]);
+// Main component with optimized rendering
+export const MemoizedMarkdown = memo<MarkdownProps>(({ content, id }) => {
+  // Only recompute blocks when content changes
+  const blocks = useMemo(() => {
+    const marked = new Marked();
+    const tokens = marked.lexer(content);
+    return tokens.map(token => token.raw);
+  }, [content]);
 
-  return blocks.map((block, index) => <MemoizedMarkdownBlock content={block} key={`${id}-block_${index}`} />);
+  // Return early if no blocks to render
+  if (!blocks.length) return null;
+
+  // Use array index as key since blocks are stable based on content
+  return (
+    <>
+      {blocks.map((block, index) => (
+        <MemoizedMarkdownBlock 
+          content={block} 
+          key={`${id}-${index}`} 
+        />
+      ))}
+    </>
+  );
 });
 
 MemoizedMarkdown.displayName = 'MemoizedMarkdown';
