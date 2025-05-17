@@ -53,7 +53,8 @@ AUTH0_BASE_URL=
 AUTH0_ISSUER_BASE_URL=
 AUTH0_CLIENT_ID=
 AUTH0_CLIENT_SECRET=
-GOOGLE_API_KEY=
+GOOGLE_GENAI_API_KEY=  # For Gemini AI
+GOOGLE_API_KEY=       # For Google APIs (Maps, etc.)
 ```
 
 4. Run the development server:

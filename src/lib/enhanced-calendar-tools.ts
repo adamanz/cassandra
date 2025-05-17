@@ -100,7 +100,13 @@ export class EnhancedGoogleCalendarViewTool extends GoogleCalendarViewTool {
     let startDate = new Date(now);
     let endDate = new Date(now);
     
-    if (lowerQuery.includes('today')) {
+    // Special handling for current time/location queries
+    if (lowerQuery.includes('now') || lowerQuery.includes('current time') || lowerQuery.includes('current event') || 
+        lowerQuery.includes('where am i')) {
+      // For "where am I" queries, check events within the past hour and next 30 minutes
+      startDate.setHours(startDate.getHours() - 1);
+      endDate.setMinutes(endDate.getMinutes() + 30);
+    } else if (lowerQuery.includes('today')) {
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(23, 59, 59, 999);
     } else if (lowerQuery.includes('tomorrow')) {
@@ -182,7 +188,13 @@ export class EnhancedGoogleCalendarViewTool extends GoogleCalendarViewTool {
       
       // Parse the query and identify if it's likely a company/person name search
       const query = input.trim();
-      const isLikelyNameSearch = !query.includes(' ') || query.split(' ').length <= 3;
+      const lowerQuery = query.toLowerCase();
+      
+      // Special handling for current time/location queries - don't generate variations
+      const isCurrentLocationQuery = lowerQuery.includes('current time') || lowerQuery.includes('now') || 
+                                   lowerQuery.includes('current event') || lowerQuery.includes('where am i');
+      
+      const isLikelyNameSearch = !isCurrentLocationQuery && (!query.includes(' ') || query.split(' ').length <= 3);
       
       // Get time window based on query
       const timeWindow = this.expandTimeWindowForQuery(query);
@@ -193,6 +205,10 @@ export class EnhancedGoogleCalendarViewTool extends GoogleCalendarViewTool {
       if (isLikelyNameSearch) {
         searchVariations = this.generateNameVariations(query);
         console.log('Generated search variations:', searchVariations);
+      } else if (isCurrentLocationQuery) {
+        // For current location queries, search without the full query text
+        searchVariations = [''];  // Empty search to get all events in the time window
+        console.log('Current location query - searching all events in time window');
       }
       
       // Initialize results accumulator

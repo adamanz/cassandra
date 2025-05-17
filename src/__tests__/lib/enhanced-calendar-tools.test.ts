@@ -152,6 +152,39 @@ describe('EnhancedGoogleCalendarViewTool', () => {
       const dayDiff = (maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24);
       expect(dayDiff).toBeCloseTo(30, 0);
     });
+
+    it('should use narrow time window for "where am I" queries', () => {
+      const timeWindow = (tool as any).expandTimeWindowForQuery('where am I right now');
+      
+      const minDate = new Date(timeWindow.timeMin);
+      const maxDate = new Date(timeWindow.timeMax);
+      
+      // Should search 1 hour before to 30 minutes after current time
+      const hourDiff = (maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60);
+      expect(hourDiff).toBeCloseTo(1.5, 1); // 1.5 hours window
+    });
+
+    it('should use narrow time window for "current time" queries', () => {
+      const timeWindow = (tool as any).expandTimeWindowForQuery('current time event');
+      
+      const minDate = new Date(timeWindow.timeMin);
+      const maxDate = new Date(timeWindow.timeMax);
+      
+      // Should search 1 hour before to 30 minutes after current time
+      const hourDiff = (maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60);
+      expect(hourDiff).toBeCloseTo(1.5, 1); // 1.5 hours window
+    });
+
+    it('should use narrow time window for "now" queries', () => {
+      const timeWindow = (tool as any).expandTimeWindowForQuery('what is happening now');
+      
+      const minDate = new Date(timeWindow.timeMin);
+      const maxDate = new Date(timeWindow.timeMax);
+      
+      // Should search 1 hour before to 30 minutes after current time
+      const hourDiff = (maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60);
+      expect(hourDiff).toBeCloseTo(1.5, 1); // 1.5 hours window
+    });
   });
 
   describe('Current Time Info', () => {
@@ -309,6 +342,22 @@ describe('EnhancedGoogleCalendarViewTool', () => {
       expect(calls.length).toBeGreaterThan(0);
       const hasEmailQuery = calls.some(call => call[0].q && call[0].q.includes('meeting@company.com'));
       expect(hasEmailQuery).toBe(true);
+    });
+
+    it('should not generate variations for "where am I" queries', async () => {
+      await tool._call('where am I right now');
+      
+      const calls = mockCalendarClient.events.list.mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      
+      // For "where am I" queries, should search with empty query
+      expect(calls[0][0].q).toBe('');
+      
+      // Should use a narrow time window (1.5 hours)
+      const timeMin = new Date(calls[0][0].timeMin);
+      const timeMax = new Date(calls[0][0].timeMax);
+      const hourDiff = (timeMax.getTime() - timeMin.getTime()) / (1000 * 60 * 60);
+      expect(hourDiff).toBeCloseTo(1.5, 1);
     });
   });
 });

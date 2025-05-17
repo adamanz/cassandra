@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Cassandra Calendar Assistant is an AI-powered calendar management application built with Next.js 15, LangChain, and LangGraph. It provides intelligent natural language search and event creation capabilities for Google Calendar through Auth0 authentication with Token Vault integration.
+Cassandra Calendar Assistant is an AI-powered calendar management application built with Next.js 15, LangChain, and LangGraph. It provides intelligent natural language search and event creation capabilities for Google Calendar through Auth0 authentication with Token Vault integration, now enhanced with Google Maps location services.
 
 ## Key Commands
 
@@ -44,7 +44,7 @@ npm run deploy       # Build and deploy to production
 - React 19.0.0
 - TypeScript 5.7.3
 - LangChain & LangGraph for AI orchestration
-- Claude 3.7 Sonnet (Anthropic) as primary LLM
+- Gemini 2.5 Flash Preview (Google) as primary LLM
 - Auth0 with Token Vault for Google Calendar access
 - Zustand for state management
 - Tailwind CSS + Radix UI for components
@@ -59,6 +59,7 @@ npm run deploy       # Build and deploy to production
   - `enhanced-calendar-tools.ts` - Advanced calendar search with fuzzy matching
   - `enhanced-calendar-create-tool.ts` - Natural language event creation
   - `auth0.ts` - Auth0 configuration and Google token management
+  - `google-maps-tools.ts` - Google Maps integration for location services
 - `/src/utils/` - Utility functions
 - `/src/store.ts` - Zustand state management
 
@@ -88,6 +89,15 @@ npm run deploy       # Build and deploy to production
    - Middleware-based session management
    - User profile and picture display
 
+5. **Google Maps Integration** (`google-maps-tools.ts`):
+   - Geocoding: Convert addresses to coordinates and vice versa
+   - Place search: Find places by query with optional location/radius
+   - Place details: Get detailed information about specific places
+   - Distance matrix: Calculate travel times and distances
+   - Elevation data: Get elevation information for coordinates
+   - Directions: Get turn-by-turn navigation between points
+   - Multiple travel modes supported (driving, walking, transit, bicycling)
+
 ### Environment Variables
 
 Required:
@@ -96,10 +106,12 @@ Required:
 - `AUTH0_ISSUER_BASE_URL` - Auth0 domain
 - `AUTH0_CLIENT_ID` - Auth0 application client ID
 - `AUTH0_CLIENT_SECRET` - Auth0 application client secret  
-- `ANTHROPIC_API_KEY` - Anthropic API key for Claude access
+- `GOOGLE_GENAI_API_KEY` - Google Generative AI API key for Gemini access
+- `GOOGLE_API_KEY` - Alternative Google API key (can use same as GOOGLE_GENAI_API_KEY)
 
 Optional:
 - `SERPAPI_API_KEY` - For web search functionality
+- `GOOGLE_MAPS_API_KEY` - For Google Maps location services
 - `LANGCHAIN_TRACING_V2` - Enable LangSmith tracing
 - `LANGCHAIN_API_KEY` - LangSmith API key
 - `LANGCHAIN_PROJECT` - LangSmith project name
@@ -164,6 +176,13 @@ Optional:
    - Verify Token Vault is enabled
    - Ensure Google scopes are correct
    - Review middleware logs
+
+4. **Integrating location services**:
+   - Import Google Maps tools from `/lib/google-maps-tools.ts`
+   - Ensure `GOOGLE_MAPS_API_KEY` is configured
+   - Use appropriate tools for geocoding, place search, or directions
+   - Handle Google Maps API errors gracefully
+   - Consider rate limits for production usage
 
 ### Security Notes
 - Never commit `.env` files

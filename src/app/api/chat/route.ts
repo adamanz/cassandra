@@ -12,13 +12,23 @@ import { convertVercelMessageToLangChainMessage } from '@/utils/message-converte
 import { logToolCallsInDevelopment } from '@/utils/stream-logging';
 import { EnhancedGoogleCalendarViewTool } from '@/lib/enhanced-calendar-tools';
 import { EnhancedGoogleCalendarCreateTool } from '@/lib/enhanced-calendar-create-tool';
+import { googleMapsTools } from '@/lib/google-maps-tools';
 
-const AGENT_SYSTEM_TEMPLATE = `You are Cassandra, an ultra-smart calendar assistant specialized in finding and managing events.
+const AGENT_SYSTEM_TEMPLATE = `You are Cassandra, an ultra-smart calendar assistant specialized in finding and managing events, now enhanced with location intelligence.
 
 MY CORE CAPABILITIES:
 1. Finding calendar events with extreme precision - even with minimal input like a single keyword
 2. Managing schedule with intelligent time calculations
 3. Creating events with minimal friction
+4. Providing location-based assistance using Google Maps
+
+IMPORTANT - HANDLING "WHERE AM I" TYPE QUERIES:
+- When users ask "where am I", "where am I right now", "what's my current location", etc., I MUST:
+  1. FIRST check the calendar for current or recent events that might indicate location
+  2. Look for events happening NOW or recently ended (within the past hour)
+  3. Check the location field of these events to determine where the user likely is
+  4. Only use enhanced_google_calendar_view with search terms like "current time" or "now"
+  5. NEVER interpret "where am I" as a general calendar search - it's specifically about current location
 
 ADVANCED SEARCH TECHNIQUES:
 - When searching for meetings, I look for partial matches in titles, descriptions, attendees, and locations
@@ -45,6 +55,14 @@ RESPONSE FORMAT:
 When creating events, I need: date, time, title and optional location and attendees.
 To add attendees, include a line starting with "Attendees:" or "Invite:" followed by comma-separated email addresses.
 
+LOCATION & TRAVEL ASSISTANCE:
+- I can find places using Google Maps when users mention locations
+- I calculate travel times and distances between locations
+- I can get directions for various travel modes (driving, walking, transit, bicycling)
+- I provide elevation data for outdoor activities
+- I can show detailed information about places, including ratings and reviews
+- When users ask about a location before/after a meeting, I check their calendar and provide relevant location data
+
 I always prioritize finding events over creating new ones when the query is ambiguous.`;
 
 /**
@@ -67,17 +85,17 @@ export async function POST(req: NextRequest) {
     console.log(`Processing ${messages.length} messages`);
 
     // Check for required API keys
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error('Missing ANTHROPIC_API_KEY environment variable');
+    if (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GOOGLE_API_KEY) {
+      console.error('Missing GOOGLE_GENAI_API_KEY or GOOGLE_API_KEY environment variable');
       return NextResponse.json(
-        { error: 'Server configuration error: Missing Anthropic API key' },
+        { error: 'Server configuration error: Missing Google Generative AI API key' },
         { status: 500 }
       );
     }
 
-    const llm = new ChatAnthropic({
-      model: 'claude-3-7-sonnet-20250219',
-      apiKey: process.env.ANTHROPIC_API_KEY,
+    const llm = new ChatGoogleGenerativeAI({
+      model: 'gemini-2.5-pro-preview-05-06',
+      apiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY,
       temperature: 0.3,
       topP: 0.95,
       maxTokens: 4096,
@@ -89,6 +107,9 @@ export async function POST(req: NextRequest) {
     
     // Add SerpAPI if the API key is available - lower logging overhead
     process.env.SERPAPI_API_KEY && basicTools.push(new SerpAPI(process.env.SERPAPI_API_KEY));
+    
+    // Add Google Maps tools to basic tools since they don't require Google Calendar auth
+    basicTools.push(...googleMapsTools);
 
     try {
       // Get the access token via Auth0
