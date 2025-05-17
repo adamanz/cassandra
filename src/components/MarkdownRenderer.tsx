@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
+import Image from 'next/image';
 import { cn } from '@/utils/cn';
 
 interface MarkdownRendererProps {
@@ -129,11 +130,16 @@ export const MarkdownRenderer = memo(({ content, className }: MarkdownRendererPr
           
           // Images
           img: ({ src, alt }) => (
-            <img
-              src={src}
-              alt={alt}
-              className="rounded-lg max-w-full h-auto mb-4"
-            />
+            <span className="block relative w-full h-auto mb-4">
+              <Image
+                src={src || ''}
+                alt={alt || ''}
+                width={800}
+                height={600}
+                className="rounded-lg max-w-full h-auto"
+                style={{ objectFit: 'contain' }}
+              />
+            </span>
           ),
         }}
       >

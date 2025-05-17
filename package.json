@@ -5,12 +5,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next build && next start",
+    "start": "next start",
     "lint": "next lint",
     "format": "prettier --write \"src\"",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "vercel": "vercel",
+    "vercel:prod": "vercel --prod",
+    "deploy": "npm run build && npm run vercel:prod"
   },
   "engines": {
     "node": ">=18"

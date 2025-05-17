@@ -43,7 +43,16 @@ const ScrollToBottom = memo(function ScrollToBottom(props: { className?: string 
   );
 });
 
-const ChatInput = memo(function ChatInput(props: {
+const ChatInput = memo(function ChatInput({
+  onSubmit,
+  value,
+  onChange,
+  loading,
+  disabled,
+  placeholder,
+  children,
+  className,
+}: {
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -56,20 +65,20 @@ const ChatInput = memo(function ChatInput(props: {
   const handleSubmit = useCallback((e: FormEvent<HTMLFormElement>) => {
     e.stopPropagation();
     e.preventDefault();
-    props.onSubmit(e);
-  }, [props.onSubmit]);
+    onSubmit(e);
+  }, [onSubmit]);
 
   return (
     <form
       onSubmit={handleSubmit}
-      className={cn('flex w-full flex-col', props.className)}
+      className={cn('flex w-full flex-col', className)}
     >
       <div className="border border-input/20 bg-background/50 backdrop-blur-sm rounded-2xl shadow-lg flex flex-col gap-2 max-w-[768px] w-full mx-auto transition-all duration-200 hover:border-primary/30 focus-within:border-primary/50">
         <input
-          value={props.value}
-          placeholder={props.placeholder}
-          onChange={props.onChange}
-          disabled={props.disabled}
+          value={value}
+          placeholder={placeholder}
+          onChange={onChange}
+          disabled={disabled}
           className="border-none outline-none bg-transparent p-4 text-foreground placeholder:text-muted-foreground"
         />
 
@@ -79,9 +88,9 @@ const ChatInput = memo(function ChatInput(props: {
             variant="default"
             type="submit"
             size="icon"
-            disabled={props.loading || props.disabled}
+            disabled={loading || disabled}
           >
-            {props.loading ? <LoaderCircle className="animate-spin" size={20} /> : <ArrowUpIcon size={20} />}
+            {loading ? <LoaderCircle className="animate-spin" size={20} /> : <ArrowUpIcon size={20} />}
           </Button>
         </div>
       </div>
@@ -89,11 +98,14 @@ const ChatInput = memo(function ChatInput(props: {
   );
 });
 
-const ErrorNotification = memo(function ErrorNotification(props: { 
+const ErrorNotification = memo(function ErrorNotification({ 
+  error,
+  onRetry
+}: { 
   error: Error | null;
   onRetry: () => void;
 }) {
-  if (!props.error) return null;
+  if (!error) return null;
   
   return (
     <div className="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-3 mb-4 max-w-[768px] mx-auto w-full flex items-center justify-between">
@@ -101,14 +113,19 @@ const ErrorNotification = memo(function ErrorNotification(props: {
         <AlertCircleIcon className="w-4 h-4" />
         <p className="text-sm">Error connecting. Try logging out and back in.</p>
       </div>
-      <Button variant="outline" size="sm" onClick={props.onRetry} className="gap-1 px-2 py-1 h-auto">
+      <Button variant="outline" size="sm" onClick={onRetry} className="gap-1 px-2 py-1 h-auto">
         <RefreshCcw className="w-3 h-3" />
       </Button>
     </div>
   );
 });
 
-const StickyToBottomContent = memo(function StickyToBottomContent(props: {
+const StickyToBottomContent = memo(function StickyToBottomContent({
+  content,
+  footer,
+  className,
+  contentClassName
+}: {
   content: ReactNode;
   footer?: ReactNode;
   className?: string;
@@ -120,12 +137,12 @@ const StickyToBottomContent = memo(function StickyToBottomContent(props: {
     <div
       ref={context.scrollRef}
       style={{ width: '100%', height: '100%' }}
-      className={cn('grid grid-rows-[1fr,auto]', props.className)}
+      className={cn('grid grid-rows-[1fr,auto]', className)}
     >
-      <div ref={context.contentRef} className={props.contentClassName}>
-        {props.content}
+      <div ref={context.contentRef} className={contentClassName}>
+        {content}
       </div>
-      {props.footer}
+      {footer}
     </div>
   );
 });

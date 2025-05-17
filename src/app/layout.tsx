@@ -1,6 +1,7 @@
 import './globals.css';
 import { Roboto_Mono, Inter } from 'next/font/google';
 import { LogOut } from 'lucide-react';
+import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
@@ -34,12 +35,26 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <header className="flex justify-between items-center p-2 border-b">
             <span className={`${robotoMono.className} text-xl`}>Cassandra</span>
             {session && (
-              <Button asChild variant="ghost" size="sm">
-                <a href="/auth/logout" className="flex items-center gap-1">
-                  <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
-                </a>
-              </Button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  {session.user?.picture && (
+                    <img 
+                      src={session.user.picture} 
+                      alt={session.user.name || 'User'} 
+                      className="h-8 w-8 rounded-full"
+                    />
+                  )}
+                  {session.user?.name && (
+                    <span className="text-sm font-medium">{session.user.name}</span>
+                  )}
+                </div>
+                <Button asChild variant="ghost" size="sm">
+                  <a href="/auth/logout" className="flex items-center gap-1">
+                    <LogOut className="h-4 w-4" />
+                    <span>Logout</span>
+                  </a>
+                </Button>
+              </div>
             )}
           </header>
           <main className="flex-1 relative">
